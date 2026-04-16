@@ -71,6 +71,7 @@ import {
   onValue
 } from "https://www.gstatic.com/firebasejs/10.12.5/firebase-database.js";
 
+/* 🔥 Firebase */
 const firebaseConfig = {
   apiKey: "AIzaSyByAJ_lafYdkTrNoTbs2V4m8-yOs1t8vwA",
   authDomain: "squirrelnews-53a89.firebaseapp.com",
@@ -91,6 +92,7 @@ const input = document.getElementById("input");
 const CODE = "4 8 15 16 23 42";
 
 let state = {};
+let endTime = null;
 let syncedOnce = false;
 
 /* 🛰 LIVE SYNC */
@@ -99,8 +101,9 @@ onValue(stateRef, (snap) => {
   if (!d) return;
 
   state = d;
+  endTime = d.endTime ?? endTime;
 
-  /* 🔥 dynamic system status display */
+  /* SYSTEM STATUS DISPLAY */
   if (!syncedOnce) {
     syncedOnce = true;
 
@@ -116,7 +119,13 @@ onValue(stateRef, (snap) => {
   }
 });
 
-/* ⌨️ INPUT */
+/* ⏱ remaining time helper */
+function getRemaining() {
+  if (!endTime) return 0;
+  return Math.max(0, Math.floor((endTime - Date.now()) / 1000));
+}
+
+/* ⌨️ INPUT HANDLER */
 input.addEventListener("keydown", (e) => {
   if (e.key !== "Enter") return;
 
@@ -125,19 +134,29 @@ input.addEventListener("keydown", (e) => {
 
   log.innerText += "\n█ " + v;
 
+  /* STATUS CHECK */
+  if (v === "status") {
+    log.innerText += "\nSTATE: " + (state.status || "unknown");
+    return;
+  }
+
   /* RESET / START CYCLE */
   if (v === CODE) {
+
+    const remaining = getRemaining();
+
+    /* 🚨 4-minute restriction restored */
+    if (state.endTime && remaining > 240) {
+      log.innerText += "\nENTRY RESTRICTED";
+      return;
+    }
+
     update(stateRef, {
       status: "active",
       endTime: Date.now() + (108 * 60 * 1000)
     });
 
     log.innerText += "\nSYSTEM RESET";
-    return;
-  }
-
-  if (v === "status") {
-    log.innerText += "\nSTATE: " + (state.status || "unknown");
     return;
   }
 

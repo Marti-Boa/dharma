@@ -71,7 +71,6 @@ import {
   onValue
 } from "https://www.gstatic.com/firebasejs/10.12.5/firebase-database.js";
 
-/* 🔥 Firebase */
 const firebaseConfig = {
   apiKey: "AIzaSyByAJ_lafYdkTrNoTbs2V4m8-yOs1t8vwA",
   authDomain: "squirrelnews-53a89.firebaseapp.com",
@@ -95,7 +94,7 @@ let state = {};
 let endTime = null;
 let syncedOnce = false;
 
-/* 🛰 LIVE SYNC */
+/* 🛰 SYNC */
 onValue(stateRef, (snap) => {
   const d = snap.val();
   if (!d) return;
@@ -103,15 +102,12 @@ onValue(stateRef, (snap) => {
   state = d;
   endTime = d.endTime ?? endTime;
 
-  /* SYSTEM STATUS DISPLAY */
   if (!syncedOnce) {
     syncedOnce = true;
 
-    if (d.status === "active") {
-      log.innerText = "SYSTEM ONLINE";
-    } else {
-      log.innerText = "SYSTEM OFFLINE";
-    }
+    log.innerText = d.status === "active"
+      ? "SYSTEM ONLINE"
+      : "SYSTEM OFFLINE";
   }
 
   if (d.status === "failure") {
@@ -119,13 +115,13 @@ onValue(stateRef, (snap) => {
   }
 });
 
-/* ⏱ remaining time helper */
+/* ⏱ remaining */
 function getRemaining() {
   if (!endTime) return 0;
   return Math.max(0, Math.floor((endTime - Date.now()) / 1000));
 }
 
-/* ⌨️ INPUT HANDLER */
+/* ⌨️ INPUT */
 input.addEventListener("keydown", (e) => {
   if (e.key !== "Enter") return;
 
@@ -134,18 +130,47 @@ input.addEventListener("keydown", (e) => {
 
   log.innerText += "\n█ " + v;
 
-  /* STATUS CHECK */
+  /* 🔒 HIDDEN ADMIN: PAUSE */
+  if (v === "sys.mag.process.stop") {
+
+    if (!state.paused) {
+      update(stateRef, {
+        paused: true,
+        pauseTime: Date.now()
+      });
+    }
+
+    return; // no visible output
+  }
+
+  /* 🔒 HIDDEN ADMIN: RESUME */
+  if (v === "sys.mag.process.resume") {
+
+    if (state.paused && state.pauseTime && state.endTime) {
+
+      const pausedDuration = Date.now() - state.pauseTime;
+
+      update(stateRef, {
+        paused: false,
+        pauseTime: null,
+        endTime: state.endTime + pausedDuration
+      });
+    }
+
+    return; // no visible output
+  }
+
+  /* STATUS */
   if (v === "status") {
     log.innerText += "\nSTATE: " + (state.status || "unknown");
     return;
   }
 
-  /* RESET / START CYCLE */
+  /* RESET */
   if (v === CODE) {
 
     const remaining = getRemaining();
 
-    /* 🚨 4-minute restriction restored */
     if (state.endTime && remaining > 240) {
       log.innerText += "\nENTRY RESTRICTED";
       return;
@@ -153,7 +178,9 @@ input.addEventListener("keydown", (e) => {
 
     update(stateRef, {
       status: "active",
-      endTime: Date.now() + (108 * 60 * 1000)
+      endTime: Date.now() + (108 * 60 * 1000),
+      paused: false,
+      pauseTime: null
     });
 
     log.innerText += "\nSYSTEM RESET";

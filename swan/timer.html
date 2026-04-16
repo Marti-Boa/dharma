@@ -2,7 +2,7 @@
 <html>
 <head>
 <meta charset="utf-8">
-<title>SWAN FLAP</title>
+<title>SWAN FLAP DISPLAY</title>
 
 <style>
 html, body {
@@ -32,6 +32,7 @@ import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.5/fireba
 import { getDatabase, ref, onValue }
 from "https://www.gstatic.com/firebasejs/10.12.5/firebase-database.js";
 
+/* 🔥 Firebase config */
 const firebaseConfig = {
   apiKey: "AIzaSyByAJ_lafYdkTrNoTbs2V4m8-yOs1t8vwA",
   authDomain: "squirrelnews-53a89.firebaseapp.com",
@@ -48,33 +49,48 @@ const stateRef = ref(db, "swan/state");
 
 const flap = document.getElementById("flap");
 
-let endTime = Date.now() + (108 * 60 * 1000);
-let status = "active";
+let state = {};
 
+/* 🛰 sync Firebase */
 onValue(stateRef, (snap) => {
   const d = snap.val();
   if (!d) return;
-
-  if (d.endTime) endTime = d.endTime;
-  status = d.status;
+  state = d;
 });
 
-function format(t) {
-  let m = Math.floor(t / 60);
-  let s = t % 60;
-  return String(m).padStart(3, "0") + ":" + String(s).padStart(2, "0");
-}
-
+/* ⏱ render loop */
 setInterval(() => {
-  let remaining = Math.max(0, Math.floor((endTime - Date.now()) / 1000));
 
-  if (status === "failure" || remaining <= 0) {
+  if (!state.endTime) {
+    flap.innerText = "---:--";
+    return;
+  }
+
+  /* ☠️ failure mode */
+  if (state.status === "failure") {
     flap.innerText = "ᚠ ᚢ ᚦ ᚨ ᚱ ᚲ ᚷ";
     document.body.style.color = "#ff0000";
     return;
   }
 
-  flap.innerText = format(remaining);
+  let referenceTime = Date.now();
+
+  /* 🧊 pause support */
+  if (state.paused && state.pauseTime) {
+    referenceTime = state.pauseTime;
+  }
+
+  let remaining = Math.max(
+    0,
+    Math.floor((state.endTime - referenceTime) / 1000)
+  );
+
+  let m = Math.floor(remaining / 60);
+  let s = remaining % 60;
+
+  flap.innerText =
+    String(m).padStart(3, "0") + ":" +
+    String(s).padStart(2, "0");
 
 }, 1000);
 </script>
